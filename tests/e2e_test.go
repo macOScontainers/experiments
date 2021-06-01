@@ -58,17 +58,12 @@ func TestUnpack(t *testing.T) {
 	// Remove file entries that are modified when running an image and therefore should be excluded from our comparison
 	excluded := []string{"/.dockerenv", "/dev/console", "/etc/hostname", "/etc/hosts", "/etc/resolv.conf"}
 	for _, file := range excluded {
-		
-		// Remove the file from the ground truth data
-		if err := removeIfExists(filepath.Join(groundTruth, file)); err != nil {
-			t.Error(err)
-			return
-		}
-		
-		// Remove the file from the final merged output
-		if err := removeIfExists(filepath.Join(finalLayer, file)); err != nil {
-			t.Error(err)
-			return
+		combinations := []string{filepath.Join(groundTruth, file), filepath.Join(finalLayer, file)}
+		for _, combination := range combinations {
+			if err := removeIfExists(combination); err != nil {
+				t.Error(err)
+				return
+			}
 		}
 	}
 	
