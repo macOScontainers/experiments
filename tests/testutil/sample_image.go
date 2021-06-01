@@ -69,6 +69,11 @@ func (sample *SampleImage) Generate() error {
 		return err
 	}
 	
+	// Build the container image for git
+	if err := DockerBuild("git:latest", sample.DockerfilesDir, filepath.Join(sample.DockerfilesDir, "Dockerfile.git")); err != nil {
+		return err
+	}
+	
 	// Build the container image for skopeo
 	if err := DockerBuild("skopeo:latest", sample.DockerfilesDir, filepath.Join(sample.DockerfilesDir, "Dockerfile.skopeo")); err != nil {
 		return err
@@ -119,7 +124,7 @@ func (sample *SampleImage) Generate() error {
 	if err := DockerRun("sample-layers:latest", []string{"/bin/sh", "-c", "sleep infinity"}, []string{"-d", "--name", "sample-layers"}); err != nil {
 		return err
 	}
-	if err := DockerCopy("sample-layers:/", filepath.Join(sample.RootDir, "final")); err != nil {
+	if err := DockerCopy("sample-layers:/", filepath.Join(sample.RootDir, "ground-truth")); err != nil {
 		return err
 	}
 	if err := DockerStop("sample-layers"); err != nil {

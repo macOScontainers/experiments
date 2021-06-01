@@ -65,7 +65,7 @@ func (unpacker *ImageUnpacker) unarchiverForMime(mimetype string) (archiver.Unar
 }
 
 // Unpacks the filesystem layers in the version of the image for the specified platform, applying the diffs for each successive layer
-func (unpacker *ImageUnpacker) Unpack(platform *oci.Platform) error {
+func (unpacker *ImageUnpacker) Unpack(platform *oci.Platform) (*oci.Manifest, error) {
 	
 	// Determine whether we are searching for a manifest that matches the a platform or just using the first available manifest
 	var descriptor *oci.Descriptor
@@ -86,7 +86,7 @@ func (unpacker *ImageUnpacker) Unpack(platform *oci.Platform) error {
 		
 		// If no matching manifest was found then stop processing immediately
 		if descriptor == nil {
-			return fmt.Errorf("could not find image manifest matching platform %s/%s", platform.OS, platform.Architecture)
+			return nil, fmt.Errorf("could not find image manifest matching platform %s/%s", platform.OS, platform.Architecture)
 		}
 	}
 	
@@ -96,7 +96,7 @@ func (unpacker *ImageUnpacker) Unpack(platform *oci.Platform) error {
 	// Parse the manifest
 	manifest := &oci.Manifest{}
 	if err := marshal.UnmarshalJsonFile(filepath.Join(blobsDir, descriptor.Digest.Hex()), manifest); err != nil {
-		return err
+		return nil, err
 	}
 	
 	// Unpack each of the filesystem layers in turn
@@ -110,26 +110,26 @@ func (unpacker *ImageUnpacker) Unpack(platform *oci.Platform) error {
 		// Remove the diff directory if it already exists
 		if filesystem.Exists(diffDir) {
 			if err := os.RemoveAll(diffDir); err != nil {
-				return err
+				return nil, err
 			}
 		}
 		
 		// Remove the merged directory if it already exists
 		if filesystem.Exists(mergedDir) {
 			if err := os.RemoveAll(mergedDir); err != nil {
-				return err
+				return nil, err
 			}
 		}
 		
 		// Retrieve an archive extraction object for the filesystem layer's archive blob
 		unarchiver, err := unpacker.unarchiverForMime(layer.MediaType)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		
 		// Extract the archive blob for the filesystem layer to the diff directory
 		if err := unarchiver.Unarchive(filepath.Join(blobsDir, layer.Digest.Hex()), diffDir); err != nil {
-			return err
+			return nil, err
 		}
 		
 		// Determine if this is the base filesystem layer
@@ -137,14 +137,14 @@ func (unpacker *ImageUnpacker) Unpack(platform *oci.Platform) error {
 			
 			// For the base layer we just symlink the merged directory to the diff directory
 			if err := os.Symlink("./diff", mergedDir); err != nil {
-				return err
+				return nil, err
 			}
 			
 		} else {
 			
 			// Create the merged directory
 			if err := os.Mkdir(mergedDir, os.ModePerm); err != nil {
-				return err
+				return nil, err
 			}
 			
 			// Create a DiffApplier for the current layer
@@ -157,7 +157,7 @@ func (unpacker *ImageUnpacker) Unpack(platform *oci.Platform) error {
 			// Apply the layer's diff to the merged contents of the previous layer
 			log.Println("Apply diff", layer.Digest.Hex(), "against base layer", previousLayer.Digest.Hex(), "...")
 			if err := merger.ApplyRecursive("", false); err != nil {
-				return err
+				return nil, err
 			}
 		}
 		
@@ -165,5 +165,5 @@ func (unpacker *ImageUnpacker) Unpack(platform *oci.Platform) error {
 		previousLayer = layer
 	}
 	
-	return nil
+	return manifest, nil
 }
