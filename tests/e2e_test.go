@@ -53,7 +53,7 @@ func TestUnpack(t *testing.T) {
 	
 	// Resolve the paths to the final merged output for the unpacked image and our ground truth filesystem data
 	groundTruth := filepath.Join(sample.RootDir, "ground-truth")
-	finalLayer := filepath.Join(sample.LayersDir, manifest.Layers[ len(manifest.Layers) - 1].Digest.Hex(), "merged")
+	finalLayer := filepath.Join(sample.LayersDir, manifest.Layers[len(manifest.Layers) - 1].Digest.Hex(), "merged")
 	
 	// Remove file entries that are modified when running an image and therefore should be excluded from our comparison
 	excluded := []string{"/.dockerenv", "/dev/console", "/etc/hostname", "/etc/hosts", "/etc/resolv.conf"}
