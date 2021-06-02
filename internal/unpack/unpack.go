@@ -156,7 +156,8 @@ func (unpacker *ImageUnpacker) Unpack(platform *oci.Platform) (*oci.Manifest, er
 			
 			// Apply the layer's diff to the merged contents of the previous layer
 			log.Println("Apply diff", layer.Digest.Hex(), "against base layer", previousLayer.Digest.Hex(), "...")
-			if err := merger.ApplyRecursive("", false); err != nil {
+			errorChannel := merger.ApplyRecursive("", nil, false)
+			if err := <-errorChannel; err != nil {
 				return nil, err
 			}
 		}
