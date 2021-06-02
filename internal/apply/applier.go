@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/macoscontainers/experiments/internal/filesystem"
 )
 
 // Provides functionality for applying a filesystem diff against a base filesystem layer
@@ -46,7 +48,7 @@ func (applier *DiffApplier) ApplyRecursive(subpath string, whiteoutInParent bool
 	}
 	
 	// List the directory contents for the subpath in the diff
-	diffEntries, err := ReadDirAsMap(filepath.Join(applier.DiffDir, subpath))
+	diffEntries, err := filesystem.ReadDirAsMap(filepath.Join(applier.DiffDir, subpath))
 	if err != nil {
 		return err
 	}
@@ -57,10 +59,10 @@ func (applier *DiffApplier) ApplyRecursive(subpath string, whiteoutInParent bool
 	ignoreBase := whiteoutInParent || haveOpaqueWhiteout
 	
 	// Only list the directory contents for the subpath in the base filesystem layer if it has not been erased
-	baseEntries := make(DirEntryMap)
+	baseEntries := make(filesystem.DirEntryMap)
 	if !ignoreBase {
 		var err error
-		baseEntries, err = ReadDirAsMap(filepath.Join(applier.BaseDir, subpath))
+		baseEntries, err = filesystem.ReadDirAsMap(filepath.Join(applier.BaseDir, subpath))
 		if err != nil {
 			return err
 		}

@@ -1,10 +1,8 @@
-package apply
+package filesystem
 
 import (
 	"io/fs"
 	"os"
-
-	"github.com/macoscontainers/experiments/internal/filesystem"
 )
 
 // Represents a mapping from filenames to directory entry details
@@ -21,7 +19,7 @@ func ReadDirAsMap(path string) (DirEntryMap, error) {
 	
 	// If the specified directory does not exist then return an empty map
 	entryMap := make(DirEntryMap)
-	if !filesystem.Exists(path) {
+	if !Exists(path) {
 		return entryMap, nil
 	}
 	
