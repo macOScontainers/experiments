@@ -28,24 +28,24 @@ type DiffApplier struct {
 }
 
 // Determines whether the given filename represents a whiteout file or opaque whiteout file
-func (applier *DiffApplier) isWhiteout(filename string) bool {
+func (apply *DiffApplier) isWhiteout(filename string) bool {
 	return strings.HasPrefix(filename, WHITEOUT_FILENAME_PREFIX)
 }
 
 // Generates the filename for a whiteout file given the filename of the original file
-func (applier *DiffApplier) whiteoutForFile(filename string) string {
+func (apply *DiffApplier) whiteoutForFile(filename string) string {
 	return fmt.Sprint(WHITEOUT_FILENAME_PREFIX, filename)
 }
 
 // Recursively applies the diff for a given filesystem subpath to the contents of the base filesystem layer
-func (applier *DiffApplier) ApplyRecursive(subpath string, subpathDetails fs.DirEntry, whiteoutInParent bool) <-chan error {
+func (apply *DiffApplier) ApplyRecursive(subpath string, subpathDetails fs.DirEntry, whiteoutInParent bool) <-chan error {
 	
 	// Create a channel to store the result
 	result := make(chan error, 1)
 	
 	// Perform processing in a separate goroutine
 	go func() {
-		result <- applier.applyRecursiveImp(subpath, subpathDetails, whiteoutInParent)
+		result <- apply.applyRecursiveImp(subpath, subpathDetails, whiteoutInParent)
 		close(result)
 	}()
 	
@@ -53,7 +53,7 @@ func (applier *DiffApplier) ApplyRecursive(subpath string, subpathDetails fs.Dir
 }
 
 // The internal implementation of the ApplyRecursive() function
-func (applier *DiffApplier) applyRecursiveImp(subpath string, subpathDetails fs.DirEntry, whiteoutInParent bool) error {
+func (apply *DiffApplier) applyRecursiveImp(subpath string, subpathDetails fs.DirEntry, whiteoutInParent bool) error {
 	
 	// Gather errors from recursive calls to they can be aggregated for the caller
 	errorChannels := []<-chan error{}
@@ -65,19 +65,19 @@ func (applier *DiffApplier) applyRecursiveImp(subpath string, subpathDetails fs.
 	if subpath != "" && subpathDetails != nil {
 		
 		// Create the directory
-		dirPath := filepath.Join(applier.MergedDir, subpath)
+		dirPath := filepath.Join(apply.MergedDir, subpath)
 		if err := os.MkdirAll(dirPath, os.ModePerm); err != nil {
 			return err
 		}
 		
 		// Copy the directory's attributes
-		if err := applier.copyAttributes("", dirPath, subpathDetails); err != nil {
+		if err := apply.copyAttributes("", dirPath, subpathDetails); err != nil {
 			return err
 		}
 	}
 	
 	// List the directory contents for the subpath in the diff
-	diffEntries, err := filesystem.ReadDirAsMap(filepath.Join(applier.DiffDir, subpath))
+	diffEntries, err := filesystem.ReadDirAsMap(filepath.Join(apply.DiffDir, subpath))
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (applier *DiffApplier) applyRecursiveImp(subpath string, subpathDetails fs.
 	baseEntries := make(filesystem.DirEntryMap)
 	if !ignoreBase {
 		var err error
-		baseEntries, err = filesystem.ReadDirAsMap(filepath.Join(applier.BaseDir, subpath))
+		baseEntries, err = filesystem.ReadDirAsMap(filepath.Join(apply.BaseDir, subpath))
 		if err != nil {
 			return err
 		}
@@ -101,20 +101,20 @@ func (applier *DiffApplier) applyRecursiveImp(subpath string, subpathDetails fs.
 	for filename, details := range baseEntries {
 		
 		// Ignore the file or directory if it has been erased or overwritten
-		if !diffEntries.Exists(applier.whiteoutForFile(filename)) && !diffEntries.Exists(filename) {
+		if !diffEntries.Exists(apply.whiteoutForFile(filename)) && !diffEntries.Exists(filename) {
 			
 			// Determine whether the entry is a directory
 			if details.IsDir() {
 				
 				// Merge the directory recursively
-				errorChannels = append(errorChannels, applier.ApplyRecursive(filepath.Join(subpath, filename), details, false))
+				errorChannels = append(errorChannels, apply.ApplyRecursive(filepath.Join(subpath, filename), details, false))
 				
 			} else {
 				
 				// DEBUG
 				//log.Println("Merge file from base layer", filename)
 				
-				if err := applier.applyFile(applier.BaseDir, subpath, filename, details); err != nil {
+				if err := apply.applyFile(apply.BaseDir, subpath, filename, details); err != nil {
 					return err
 				}
 			}
@@ -125,21 +125,21 @@ func (applier *DiffApplier) applyRecursiveImp(subpath string, subpathDetails fs.
 	for filename, details := range diffEntries {
 		
 		// Ignore whiteout files
-		if !applier.isWhiteout(filename) {
+		if !apply.isWhiteout(filename) {
 			
 			// Determine whether the entry is a directory
 			if details.IsDir() {
 				
 				// Merge the directory recursively, indicating whether the directory has been erased to ensure whiteouts propagate to subdirectories
-				erased := ignoreBase || diffEntries.Exists(applier.whiteoutForFile(filename))
-				errorChannels = append(errorChannels, applier.ApplyRecursive(filepath.Join(subpath, filename), details, erased))
+				erased := ignoreBase || diffEntries.Exists(apply.whiteoutForFile(filename))
+				errorChannels = append(errorChannels, apply.ApplyRecursive(filepath.Join(subpath, filename), details, erased))
 				
 			} else {
 				
 				// DEBUG
 				//log.Println("Merge file from diff", filename)
 				
-				if err := applier.applyFile(applier.DiffDir, subpath, filename, details); err != nil {
+				if err := apply.applyFile(apply.DiffDir, subpath, filename, details); err != nil {
 					return err
 				}
 			}
@@ -159,11 +159,11 @@ func (applier *DiffApplier) applyRecursiveImp(subpath string, subpathDetails fs.
 }
 
 // Copies an individual file from either the base filesystem layer or the diff into the output directory
-func (applier *DiffApplier) applyFile(origin string, subpath string, filename string, details fs.DirEntry) error {
+func (apply *DiffApplier) applyFile(origin string, subpath string, filename string, details fs.DirEntry) error {
 	
 	// Resolve the absolute paths to the source and target files
 	source := filepath.Join(origin, subpath, filename)
-	target := filepath.Join(applier.MergedDir, subpath, filename)
+	target := filepath.Join(apply.MergedDir, subpath, filename)
 	
 	// Determine what type of file we are copying
 	switch details.Type() {
@@ -183,7 +183,7 @@ func (applier *DiffApplier) applyFile(origin string, subpath string, filename st
 		}
 		
 		// Copy over the attributes of the symlink
-		return applier.copyAttributes(source, target, details)
+		return apply.copyAttributes(source, target, details)
 		
 	// Hardlink all other types of files
 	default:
@@ -192,7 +192,7 @@ func (applier *DiffApplier) applyFile(origin string, subpath string, filename st
 }
 
 // Copies the attributes of the source file or directory to the target file or directory
-func (applier *DiffApplier) copyAttributes(source string, target string, details fs.DirEntry) error {
+func (apply *DiffApplier) copyAttributes(source string, target string, details fs.DirEntry) error {
 	
 	// Retrieve the attributes from the DirEntry object
 	info, err := details.Info()
