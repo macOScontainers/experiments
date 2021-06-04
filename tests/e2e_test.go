@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/macoscontainers/experiments/internal/filesystem"
-	"github.com/macoscontainers/experiments/internal/unpack"
+	"github.com/macoscontainers/experiments/internal/image"
 	"github.com/macoscontainers/experiments/tests/testutil"
 )
 
@@ -38,7 +38,7 @@ func TestUnpack(t *testing.T) {
 	
 	// Create an ImageUnpacker for the sample image
 	layersDir := filepath.Join(sample.RootDir, "layers")
-	unpacker, err := unpack.UnpackerForImage(sample.RootDir, layersDir)
+	unpacker, err := image.UnpackerForImage(sample.RootDir, layersDir)
 	if err != nil {
 		t.Error(err)
 		return

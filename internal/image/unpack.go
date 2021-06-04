@@ -1,4 +1,4 @@
-package unpack
+package image
 
 import (
 	"errors"
@@ -8,8 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/macoscontainers/experiments/internal/apply"
 	"github.com/macoscontainers/experiments/internal/filesystem"
+	"github.com/macoscontainers/experiments/internal/layer"
 	"github.com/macoscontainers/experiments/internal/marshal"
 	archiver "github.com/mholt/archiver/v3"
 	oci "github.com/opencontainers/image-spec/specs-go/v1"
@@ -102,11 +102,11 @@ func (unpacker *ImageUnpacker) Unpack(platform *oci.Platform) (*oci.Manifest, er
 	
 	// Unpack each of the filesystem layers in turn
 	var previousLayer oci.Descriptor
-	for index, layer := range manifest.Layers {
+	for index, layerDetails := range manifest.Layers {
 		
 		// Resolve the path to the diff and merged directories for the current filesystem layer
-		diffDir := filepath.Join(unpacker.unpackDir, layer.Digest.Hex(), "diff")
-		mergedDir := filepath.Join(unpacker.unpackDir, layer.Digest.Hex(), "merged")
+		diffDir := filepath.Join(unpacker.unpackDir, layerDetails.Digest.Hex(), "diff")
+		mergedDir := filepath.Join(unpacker.unpackDir, layerDetails.Digest.Hex(), "merged")
 		
 		// Remove the diff directory if it already exists
 		if filesystem.Exists(diffDir) {
@@ -139,7 +139,7 @@ func (unpacker *ImageUnpacker) Unpack(platform *oci.Platform) (*oci.Manifest, er
 		if err := os.MkdirAll(diffDir, os.ModePerm); err != nil {
 			return nil, err
 		}
-		cmd := exec.Command("tar", "--preserve-permissions", "--same-owner", "-xzvf", filepath.Join(blobsDir, layer.Digest.Hex()), "--directory", diffDir)
+		cmd := exec.Command("tar", "--preserve-permissions", "--same-owner", "-xzvf", filepath.Join(blobsDir, layerDetails.Digest.Hex()), "--directory", diffDir)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		
@@ -164,14 +164,14 @@ func (unpacker *ImageUnpacker) Unpack(platform *oci.Platform) (*oci.Manifest, er
 			}
 			
 			// Create a DiffApplier for the current layer
-			merger := &apply.DiffApplier{
+			merger := &layer.DiffApplier{
 				BaseDir: filepath.Join(unpacker.unpackDir, previousLayer.Digest.Hex(), "merged"),
 				DiffDir: diffDir,
 				MergedDir: mergedDir,
 			}
 			
 			// Apply the layer's diff to the merged contents of the previous layer
-			log.Println("Apply diff", layer.Digest.Hex(), "against base layer", previousLayer.Digest.Hex(), "...")
+			log.Println("Apply diff", layerDetails.Digest.Hex(), "against base layer", previousLayer.Digest.Hex(), "...")
 			errorChannel := merger.ApplyRecursive("", nil, false)
 			if err := <-errorChannel; err != nil {
 				return nil, err
@@ -179,7 +179,7 @@ func (unpacker *ImageUnpacker) Unpack(platform *oci.Platform) (*oci.Manifest, er
 		}
 		
 		// Keep track of the previous layer for each loop iteration
-		previousLayer = layer
+		previousLayer = layerDetails
 	}
 	
 	return manifest, nil

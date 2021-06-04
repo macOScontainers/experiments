@@ -1,4 +1,4 @@
-package apply
+package layer
 
 // The prefix used to specify that a file is a whiteout file
 const WHITEOUT_FILENAME_PREFIX = ".wh."
