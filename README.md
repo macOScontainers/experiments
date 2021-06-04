@@ -8,7 +8,7 @@ This repository contains code for experimenting with the various pieces of funct
 You can run the end-to-end test suite using the following command:
 
 ```
-go test -v ./tests
+sudo go test -v ./tests
 ```
 
 ## Legal

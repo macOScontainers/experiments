@@ -18,6 +18,10 @@ RUN touch /rootdir/file1.txt && \
 	(echo 'sfile1.txt updated contents' > /rootdir/subdir1/sfile1.txt)
 
 # Remove files and directories
-RUN rm /rootdir/file1.txt
-RUN rm /rootdir/subdir2/sfile3.txt
+RUN rm /rootdir/file1.txt && \
+	rm /rootdir/subdir2/sfile3.txt
 RUN rm -r -f /rootdir/subdir1
+
+# Change ownership and permissions of files and directories
+RUN chmod +x /rootdir/file2.txt && \
+	chown -R 1000:1000 /rootdir/subdir2

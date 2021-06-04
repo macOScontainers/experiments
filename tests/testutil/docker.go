@@ -26,5 +26,5 @@ func DockerStop(container string) error {
 
 // Copies files from a running container to the host filesystem by invoking the `docker cp` command
 func DockerCopy(source string, dest string) error {
-	return Run("docker", "cp", source, dest)
+	return Run("docker", "cp", "--archive", source, dest)
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/macoscontainers/experiments/internal/apply"
@@ -121,6 +122,7 @@ func (unpacker *ImageUnpacker) Unpack(platform *oci.Platform) (*oci.Manifest, er
 			}
 		}
 		
+		/*
 		// Retrieve an archive extraction object for the filesystem layer's archive blob
 		unarchiver, err := unpacker.unarchiverForMime(layer.MediaType)
 		if err != nil {
@@ -129,6 +131,20 @@ func (unpacker *ImageUnpacker) Unpack(platform *oci.Platform) (*oci.Manifest, er
 		
 		// Extract the archive blob for the filesystem layer to the diff directory
 		if err := unarchiver.Unarchive(filepath.Join(blobsDir, layer.Digest.Hex()), diffDir); err != nil {
+			return nil, err
+		}
+		*/
+		
+		// TEMPORARY: use the GNU tar command to perform extraction and preserve attributes
+		if err := os.MkdirAll(diffDir, os.ModePerm); err != nil {
+			return nil, err
+		}
+		cmd := exec.Command("tar", "--preserve-permissions", "--same-owner", "-xzvf", filepath.Join(blobsDir, layer.Digest.Hex()), "--directory", diffDir)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		
+		// Log the command details and run the child process
+		if err := cmd.Run(); err != nil {
 			return nil, err
 		}
 		
